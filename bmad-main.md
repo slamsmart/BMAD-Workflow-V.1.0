@@ -268,7 +268,11 @@ Jalankan PHASE 4: validasi hasil Lighthouse ini
 
 ---
 
-## CONTEXT FILES (upload ke Claude.ai)
+## CONTEXT FILES (upload ke AI agent)
+
+> **Multi-agent compatible.** Workflow ini works dengan semua AI agent yang support MCP:
+> Claude Code · Cursor · Codex CLI · opencode · Hermes Agent · Gemini CLI · Antigravity IDE · Kiro
+> (Atau model AI mana pun yang lo akses lewat agent-agent di atas — Claude, GPT, Gemini, Grok, dll.)
 
 ```
 ── working files (dari project lo, hasil isi /templates/) ──
@@ -290,6 +294,13 @@ accessibility-wcag.md
 
 > **Working files (`PRD.md` / `SRD.md` / `SYSTEM_MAP.md`) di-generate per-project** dari `/templates/`.
 > Repo workflow ini ngga commit working file — masing-masing project punya copy sendiri.
+
+> **Cara upload ke agent:**
+> - **Claude Code / Cursor / Codex / opencode / Hermes / Gemini CLI / Antigravity / Kiro:** files otomatis dibaca dari repo (tinggal `/include` atau pakai context import sesuai agent)
+> - **Claude.ai web:** drag & drop file ke chat
+> - **Generic AI (web UI):** copy-paste isi file ke prompt
+>
+> Behavior rules di bawah agent-agnostic — bahasa "AI" / "agent" applies ke siapa pun yang baca file ini.
 
 ---
 

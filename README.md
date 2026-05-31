@@ -2,7 +2,7 @@
 
 **AI-driven engineering workflow** untuk bangun aplikasi yang **aman, aksesibel, performant** — dari ide sampai deploy.
 
-> **Untuk siapa:** developer yang mau pakai AI (Claude.ai / Claude Code) untuk bangun project secara terstruktur, dengan quality gate otomatis.
+> **Untuk siapa:** developer yang mau pakai AI agent (Claude Code, Cursor, Codex, Gemini, opencode, Kiro, dll) untuk bangun project secara terstruktur, dengan quality gate otomatis.
 
 ---
 
@@ -174,7 +174,7 @@ Sebelum mulai, paham dulu tipe file di sini supaya nggak bingung:
 graph LR
     A[📘 Docs<br/>README, WORKFLOW_GUIDE] -->|baca dulu| B[📂 Templates<br/>copy ke project lo]
     B -->|isi datanya| C[📝 Working Files<br/>PRD.md, SRD.md, SYSTEM_MAP.md di project lo]
-    D[🤖 Agent Files<br/>bmad-main, task-executor, dll] -->|upload ke Claude.ai| E[🚀 Eksekusi]
+    D[🤖 Agent Files<br/>bmad-main, task-executor, dll] -->|upload ke AI agent| E[🚀 Eksekusi]
     C --> E
     F[⚙️ CI/CD<br/>.github, scripts] -->|copy ke project lo| G[Auto-validate]
 
@@ -190,7 +190,7 @@ graph LR
 | 📘 **Docs** | Root repo | Baca untuk paham workflow | `README.md`, `WORKFLOW_GUIDE.md` |
 | 📂 **Templates** | `/templates/` | Cetakan untuk working file | `PRD.template.md` |
 | 📝 **Working Files** | Di project lo | Hasil isi template, di-edit per project | `PRD.md`, `SRD.md`, `SYSTEM_MAP.md` |
-| 🤖 **Agent Files** | Root repo | Upload ke Claude.ai per phase | `bmad-main.md`, `task-executor.md` |
+| 🤖 **Agent Files** | Root repo | Upload ke AI agent per phase | `bmad-main.md`, `task-executor.md` |
 | ⚙️ **CI/CD Files** | `.github/`, `scripts/` | Copy ke project lo, auto-run di GitHub | `audit-pipeline.yml` |
 
 > **Aturan emas:** Repo BMAD-Workflow ini = **toolkit**. Project lo = **tempat kerja**. Toolkit dipisah dari kerjaan supaya update toolkit nggak bentrok dengan progress project lo.
@@ -209,7 +209,7 @@ cp templates/PRD.template.md         /path/ke/project-lo/PRD.md
 cp templates/SRD.template.md         /path/ke/project-lo/SRD.md
 cp templates/SYSTEM_MAP.template.md  /path/ke/project-lo/SYSTEM_MAP.md
 
-# 2. Copy MCP config (untuk Claude Code)
+# 2. Copy MCP config (untuk Claude Code / Cursor / Codex / Gemini / opencode / dll)
 cp templates/mcp.template.json       /path/ke/project-lo/mcp.json
 
 # 3. Copy CI/CD setup (audit pipeline + security scan)
@@ -235,7 +235,7 @@ cd /path/ke/project-lo && codegraph init -i
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant C as Claude.ai
+    participant C as AI Agent
     participant F as Working Files
 
     U->>C: Upload bmad-main.md + project-init.md
@@ -257,7 +257,7 @@ sequenceDiagram
 
 ```
 1. Isi SYSTEM_MAP.md dulu pakai template (paling penting)
-2. Upload bmad-main.md + SYSTEM_MAP.md + kode lo ke Claude.ai
+2. Upload bmad-main.md + SYSTEM_MAP.md + kode lo ke AI agent (Claude Code / Cursor / Codex / dll)
 3. Ketik: "Jalankan PHASE 3: full audit"
 ```
 
@@ -275,7 +275,7 @@ flowchart LR
     style B fill:#d1e7dd
 ```
 
-| Skenario | Upload ke Claude.ai |
+| Skenario | Upload ke AI Agent |
 |---|---|
 | **Setiap sesi** (wajib) | `bmad-main.md` · `SYSTEM_MAP.md` |
 | **Project baru** (PHASE 0) | + `project-init.md` |
@@ -417,8 +417,8 @@ flowchart LR
 ### Q: Workflow ini cocok untuk stack apa?
 A: Web app modern (React/Next.js/Vue/Svelte + Node.js/Express/NestJS). Bisa adapt ke stack lain dengan adjust di `auto-security-agent.md`.
 
-### Q: Harus pakai Claude.ai? Bisa pakai AI lain?
-A: Workflow di-design untuk Claude (karena context window besar), tapi prompt-nya bisa dipakai di GPT-4 / Gemini juga. Beberapa instruksi yang spesifik Claude (misal MCP) perlu adapt.
+### Q: Harus pakai Claude? Bisa pakai AI lain?
+A: **Bebas pilih.** Workflow ini agent-agnostic. Support 8 AI agent via MCP: Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro. Bisa juga di Claude.ai web (drag & drop), atau AI lain (copy-paste prompt). codegraph MCP juga support semua agent ini — auto-detect via `codegraph install`.
 
 ### Q: Saya nggak punya tim DevOps, apakah CI ini terlalu rumit?
 A: Nggak. Tinggal copy `.github/` ke repo lo, semuanya auto-run. Optional yang butuh setup tambahan: Snyk (free tier, cuma butuh `SNYK_TOKEN`).

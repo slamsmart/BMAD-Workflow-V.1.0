@@ -95,10 +95,32 @@
     "   - macOS/Linux: curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh",
     "   - Windows:    irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex",
     "   - atau:       npx @colbymchenry/codegraph",
-    "5. Build index awal di project: cd /path/to/project && codegraph init -i",
-    "6. Set environment variable yang dibutuhkan di shell / .env",
-    "7. Restart Claude.ai / Claude Code agar MCP config ke-detect",
-    "8. Verify dengan: /mcp di Claude Code (harus liat 'lean-ctx' + 'codegraph' connected)"
+    "5. (RECOMMENDED) Auto-config codegraph untuk semua agent terinstall:",
+    "   - Run: codegraph install",
+    "   - Auto-detects: Claude Code, Cursor, Codex CLI, opencode, Hermes Agent, Gemini CLI, Antigravity IDE, Kiro",
+    "   - Tulis MCP config + instructions file ke folder masing-masing agent otomatis",
+    "6. Build index awal di project: cd /path/to/project && codegraph init -i",
+    "7. Set environment variable yang dibutuhkan di shell / .env",
+    "8. Restart AI agent (Claude Code / Cursor / dll) agar MCP config ke-detect",
+    "9. Verify dengan command MCP-list di agent (e.g. /mcp di Claude Code)"
+  ],
+
+  "_comment_multi_agent_support": [
+    "🤖 MULTI-AGENT COMPATIBILITY:",
+    "",
+    "MCP servers di file ini works dengan SEMUA AI agent yang support MCP:",
+    "  - Claude Code (Anthropic)",
+    "  - Cursor (multi-model: Claude, GPT, Gemini)",
+    "  - Codex CLI (OpenAI)",
+    "  - opencode (multi-model)",
+    "  - Hermes Agent (multi-model)",
+    "  - Gemini CLI (Google)",
+    "  - Antigravity IDE (multi-model)",
+    "  - Kiro (multi-model)",
+    "",
+    "Pilih agent sesuai preferensi lo. AI model di belakangnya bebas.",
+    "Workflow BMAD dirancang agent-agnostic — file di /templates/ + bmad-main.md",
+    "kerja di semua agent di atas."
   ],
 
   "_comment_recommended_combo": [
