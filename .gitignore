@@ -1,0 +1,67 @@
+# ============================================================
+# BMAD Workflow — .gitignore
+# ============================================================
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / npm (jika user ada experiment di repo ini)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+.nyc_output/
+
+# Audit reports (generated, jangan di-commit)
+lighthouse-report.json
+lighthouse-report.html
+zap-report.json
+zap-report.html
+zap-report-full.html
+zap-report-full.json
+zap-api-report.html
+axe-results.json
+ci-gate-result.json
+npm-audit.json
+snyk.sarif
+trivy-fs.sarif
+trivy-image.sarif
+audit-results/
+
+# Nested git folder (anti-pattern, jangan masuk repo)
+*.git/
+!.git/
+
+# AI working files (project-spesifik, generate dari /templates)
+# Catatan: ini di-ignore di repo workflow ini supaya
+# user nggak accidentally commit PRD/SRD/SYSTEM_MAP project mereka
+# ke repo workflow ini.
+# Kalau lo pakai workflow ini DI project lo sendiri, hapus 3 baris
+# di bawah supaya PRD/SRD/SYSTEM_MAP project lo ke-track.
+PRD.md
+SRD.md
+SYSTEM_MAP.md

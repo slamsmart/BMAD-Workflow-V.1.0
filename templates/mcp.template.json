@@ -1,0 +1,91 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema/v1/mcp-server-config.json",
+  "_comment": "MCP server configuration untuk BMAD Workflow. Copy file ini ke root project lo sebagai 'mcp.json'. Sesuaikan server yang dipakai sesuai kebutuhan. Reference: https://modelcontextprotocol.io/",
+
+  "mcpServers": {
+    "_comment_lean_ctx": "lean-ctx — context engineering layer. Compress file reads, shell output, search results. WAJIB untuk workflow ini.",
+    "lean-ctx": {
+      "command": "npx",
+      "args": ["-y", "@lean-ctx/mcp-server@latest"],
+      "env": {
+        "LEAN_CTX_CACHE_DIR": "${HOME}/.lean-ctx/cache",
+        "LEAN_CTX_LOG_LEVEL": "info"
+      }
+    },
+
+    "_comment_you_com": "you.com — web search + research dengan AI synthesis. Optional, untuk PHASE 0 brainstorming + research.",
+    "you-com": {
+      "command": "npx",
+      "args": ["-y", "@you-com/mcp-server@latest"],
+      "env": {
+        "YOU_API_KEY": "${YOU_API_KEY}"
+      }
+    },
+
+    "_comment_github": "GitHub MCP — manage issues, PRs, code review. Optional, untuk PHASE 2-4.",
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
+      }
+    },
+
+    "_comment_filesystem": "Filesystem MCP — alternatif kalau lean-ctx nggak available. Restrict ke working directory.",
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${workspaceFolder}"
+      ],
+      "_disabled": true,
+      "_note": "Aktifkan dengan menghapus '_disabled' kalau lean-ctx unavailable"
+    },
+
+    "_comment_postgres": "PostgreSQL MCP — query DB read-only. Optional, untuk PHASE 2 debugging.",
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${DATABASE_URL_READONLY}"
+      ],
+      "_disabled": true,
+      "_note": "Pakai connection string read-only role, jangan superuser"
+    },
+
+    "_comment_puppeteer": "Puppeteer MCP — browser automation untuk Lighthouse + DAST scan otomatis. Optional, untuk PHASE 3.",
+    "puppeteer": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "_disabled": true
+    }
+  },
+
+  "_comment_globalShortcut": "Global config untuk semua server di atas",
+  "globalShortcut": {
+    "timeout": 30000,
+    "maxRetries": 3
+  },
+
+  "_comment_security_notes": [
+    "🔐 SECURITY NOTES:",
+    "1. JANGAN commit file ini dengan API key/token hard-coded",
+    "2. Pakai environment variable: ${VAR_NAME} → di-resolve dari shell env",
+    "3. Set env via .env (git-ignored) atau OS-level env",
+    "4. Untuk production CI: pakai secrets management (GitHub Secrets, Vault, dll)",
+    "5. Filesystem & Postgres MCP: SELALU restrict scope (specific folder, read-only DB)",
+    "6. Validate token scope: GitHub PAT pakai fine-grained, scope minimum (repo:read)"
+  ],
+
+  "_comment_setup_instructions": [
+    "📋 SETUP:",
+    "1. Copy file ini ke root project sebagai 'mcp.json'",
+    "2. Hapus semua field yang dimulai dengan '_' (cuma comment)",
+    "3. Hapus server yang nggak dipakai (lean-ctx aja udah cukup untuk start)",
+    "4. Set environment variable yang dibutuhkan di shell / .env",
+    "5. Restart Claude.ai / Claude Code agar MCP config ke-detect",
+    "6. Verify dengan: /mcp di Claude Code"
+  ]
+}
