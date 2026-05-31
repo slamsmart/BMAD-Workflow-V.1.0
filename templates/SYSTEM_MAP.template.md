@@ -37,6 +37,17 @@ Use this document to:
 - Prefer file paths, modules, routes, services, and data owners over prose.
 - Treat this file as the first stop for architecture, tracing, and safe editing.
 
+> **Tip — Auto-fill via codegraph:** kalau MCP `codegraph` aktif (recommended), banyak section di file ini bisa di-bantu isi otomatis:
+>
+> - **Top-Level Layout** → `codegraph_files()`
+> - **Entry Points** → `codegraph_search("router|app|server|main")`
+> - **Module Boundaries** → `codegraph_context("module map")`
+> - **Runtime Flows** → `codegraph_trace(from, to)` per flow
+> - **Key Files** → `codegraph_search()` untuk simbol kritikal
+> - **Pre-Edit Trace Note** → `codegraph_impact(symbol)` jawab langsung
+>
+> Workflow: jalankan `codegraph init -i` di project lo sekali, lalu pakai trigger di atas saat isi SYSTEM_MAP.
+
 ---
 
 ## Mandatory Map Check
@@ -330,6 +341,12 @@ Downstream dependencies:
 Risk:
 
 Prefer one-line notes anchored to actual files, modules, or routes.
+
+> **Auto-fill tip:** kalau codegraph aktif, satu call `codegraph_impact("<target_symbol>", depth=2)` jawab langsung untuk:
+> - Upstream callers (siapa yang panggil)
+> - Downstream dependencies (apa yang dipanggil)
+> - Test files affected
+> - Routes affected (kalau pakai framework yang supported)
 
 ---
 

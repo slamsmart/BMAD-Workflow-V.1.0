@@ -35,6 +35,8 @@
 | ♿ **Accessibility** | WCAG 2.1 AA enforcement | axe-core |
 | ⚡ **Performance** | Lighthouse score ≥ 90 enforced | Lighthouse CI |
 | 🤖 **Automation** | CI gate auto pass/fail | GitHub Actions |
+| 🧠 **Code Intelligence** | Pre-built knowledge graph (callers, callees, impact) | codegraph (MCP) |
+| 📦 **Context Compression** | ~85% token savings combined | lean-ctx (MCP) |
 
 ---
 
@@ -213,7 +215,20 @@ cp templates/mcp.template.json       /path/ke/project-lo/mcp.json
 # 3. Copy CI/CD setup (audit pipeline + security scan)
 cp -r .github                        /path/ke/project-lo/
 cp -r scripts                        /path/ke/project-lo/
+
+# 4. Install codegraph (sekali per machine — recommended)
+# macOS/Linux:
+curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
+# Windows (PowerShell):
+irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex
+# Atau via npm:
+npx @colbymchenry/codegraph
+
+# 5. Build code intelligence index di project lo
+cd /path/ke/project-lo && codegraph init -i
 ```
+
+> 💡 **Why codegraph?** Pre-built knowledge graph yang bantu AI navigate codebase tanpa grep/read loop. Hemat ~35% cost + ~70% tool calls. Local-only (SQLite). Kombinasi dengan lean-ctx = ~85% token savings compounding.
 
 ### Project Baru? Mulai dari Sini
 

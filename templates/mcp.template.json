@@ -13,6 +13,13 @@
       }
     },
 
+    "_comment_codegraph": "codegraph — semantic code intelligence. Pre-built knowledge graph (symbols, callers, callees, impact). RECOMMENDED untuk PHASE 0.6 (auto-fill SYSTEM_MAP), PHASE 2 (impact analysis, pre-edit trace), dan PHASE 3 (refactor planning). Hemat 35% cost + 70% tool calls. 100% local SQLite. Setup: jalankan 'codegraph init -i' di root project SETELAH copy mcp.json ini. Docs: https://github.com/colbymchenry/codegraph",
+    "codegraph": {
+      "command": "codegraph",
+      "args": ["serve", "--mcp"],
+      "_note": "Install dulu: npx @colbymchenry/codegraph (sekali aja). Lalu di project: 'codegraph init -i' untuk build index awal. Index disimpan di .codegraph/ (auto-gitignored). Auto-sync via file watcher."
+    },
+
     "_comment_you_com": "you.com — web search + research dengan AI synthesis. Optional, untuk PHASE 0 brainstorming + research.",
     "you-com": {
       "command": "npx",
@@ -83,9 +90,26 @@
     "📋 SETUP:",
     "1. Copy file ini ke root project sebagai 'mcp.json'",
     "2. Hapus semua field yang dimulai dengan '_' (cuma comment)",
-    "3. Hapus server yang nggak dipakai (lean-ctx aja udah cukup untuk start)",
-    "4. Set environment variable yang dibutuhkan di shell / .env",
-    "5. Restart Claude.ai / Claude Code agar MCP config ke-detect",
-    "6. Verify dengan: /mcp di Claude Code"
+    "3. Hapus server yang nggak dipakai (lean-ctx + codegraph udah cukup untuk start)",
+    "4. Install codegraph (sekali per machine):",
+    "   - macOS/Linux: curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh",
+    "   - Windows:    irm https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.ps1 | iex",
+    "   - atau:       npx @colbymchenry/codegraph",
+    "5. Build index awal di project: cd /path/to/project && codegraph init -i",
+    "6. Set environment variable yang dibutuhkan di shell / .env",
+    "7. Restart Claude.ai / Claude Code agar MCP config ke-detect",
+    "8. Verify dengan: /mcp di Claude Code (harus liat 'lean-ctx' + 'codegraph' connected)"
+  ],
+
+  "_comment_recommended_combo": [
+    "💡 RECOMMENDED MCP COMBO (untuk BMAD Workflow):",
+    "",
+    "  WAJIB:        lean-ctx (context compression)",
+    "  WAJIB:        codegraph (code intelligence)",
+    "  Optional:     you-com (research di PHASE 0)",
+    "  Optional:     github (PR/issue management di PHASE 2-4)",
+    "",
+    "Kombinasi lean-ctx + codegraph = ~85% token savings compounding.",
+    "lean-ctx compress output, codegraph kurangi jumlah tool calls."
   ]
 }

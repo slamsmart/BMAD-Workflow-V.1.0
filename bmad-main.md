@@ -488,6 +488,42 @@ Proactive use:
 - `ctx_overview(task)` at session start
 - `ctx_compress` when context grows large
 
+#### Code Intelligence Layer: codegraph
+
+Pre-built knowledge graph (symbols, callers, callees, impact, traces).
+Local SQLite — no API key, no network. Wajib di-init sekali per project: `codegraph init -i`.
+
+**Tool selection (PREFER codegraph over grep/read loop):**
+
+| Tool | Use For |
+|------|---------|
+| `codegraph_context(task)` | Map task / feature / area first — ONE CALL replaces multi-grep+read |
+| `codegraph_search(name)` | Find symbol by name (faster than grep) |
+| `codegraph_callers(symbol)` | "Apa yang panggil function ini?" sebelum edit |
+| `codegraph_callees(symbol)` | "Function ini panggil apa?" untuk trace flow |
+| `codegraph_impact(symbol, depth)` | "Kalo gw ubah ini, apa yang affected?" |
+| `codegraph_trace(from, to)` | "Bagaimana X sampai ke Y?" — call path lengkap |
+| `codegraph_explore([symbols])` | Survey beberapa simbol terkait dalam ONE call |
+| `codegraph_node(symbol)` | Get source code single symbol |
+| `codegraph_files()` | Indexed file structure (faster than filesystem scan) |
+| `codegraph_status()` | Check index health |
+
+**Phase mapping:**
+- **PHASE 0.6** — `codegraph_files()` + `codegraph_context()` → auto-fill SYSTEM_MAP.md sections (Top-Level Layout, Entry Points, Module Boundaries, Main Business Flow)
+- **PHASE 2 pre-edit** — `codegraph_impact(target_symbol)` → auto-fill "Pre-Edit Trace Note" (upstream callers, downstream deps)
+- **PHASE 2 review** — `codegraph_callers()` untuk validasi context sebelum kasih review feedback
+- **PHASE 3 audit** — `codegraph_search` security-sensitive patterns (auth, validation, crypto symbols)
+
+**Anti-pattern:**
+- ❌ Grep/Read loop untuk discovery → pakai codegraph
+- ❌ Full repo scan untuk impact analysis → `codegraph_impact`
+- ❌ Manual trace antar file → `codegraph_trace`
+
+**Fallback ke grep/Read kalau:**
+- File belum ke-index (codegraph_status return pending)
+- Bahasa file tidak supported (cek list di codegraph docs)
+- Butuh content non-symbol (string literals, comments, config)
+
 #### Output Layer: caveman
 - Telegraphic response style by default (~75% output token reduction)
 - Skip filler words, greetings, meta commentary
