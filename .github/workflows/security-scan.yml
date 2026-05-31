@@ -1,0 +1,199 @@
+name: Security Scan
+
+# Comprehensive security scan — run weekly + on PR
+# Layers:
+#   1. SAST (CodeQL) — code analysis
+#   2. Dependency scan (Snyk) — known CVEs in deps
+#   3. Secret scanning (gitleaks) — credentials in code/history
+#   4. Container scan (Trivy) — kalau ada Dockerfile
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: '0 3 * * 1'  # Senin jam 3 pagi UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write  # untuk upload SARIF
+  pull-requests: write    # untuk comment PR
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------
+  # CodeQL — GitHub native SAST
+  # ---------------------------------------------------------------
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  # ---------------------------------------------------------------
+  # Snyk — known dependency vulnerabilities
+  # Optional: butuh SNYK_TOKEN secret
+  # ---------------------------------------------------------------
+  snyk:
+    name: Snyk Dependency Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high --sarif-file-output=snyk.sarif
+
+      - name: Upload Snyk SARIF to GitHub Security
+        if: always() && hashFiles('snyk.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
+          category: snyk
+
+  # ---------------------------------------------------------------
+  # Gitleaks — secret scanning di code + git history
+  # ---------------------------------------------------------------
+  gitleaks:
+    name: Secret Scanning (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history untuk scan commits lama
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: GITLEAKS_LICENSE untuk org pro
+
+  # ---------------------------------------------------------------
+  # Trivy — container & filesystem scanner
+  # Hanya jalan kalau ada Dockerfile
+  # ---------------------------------------------------------------
+  trivy:
+    name: Container & Filesystem Scan (Trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for Dockerfile
+        id: check_dockerfile
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Trivy filesystem scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy filesystem SARIF
+        if: always() && hashFiles('trivy-fs.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      - name: Build Docker image (if Dockerfile exists)
+        if: steps.check_dockerfile.outputs.found == 'true'
+        run: docker build -t scan-target:${{ github.sha }} .
+
+      - name: Run Trivy image scanner
+        if: steps.check_dockerfile.outputs.found == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'scan-target:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-image.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy image SARIF
+        if: steps.check_dockerfile.outputs.found == 'true' && hashFiles('trivy-image.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+  # ---------------------------------------------------------------
+  # Final gate — aggregate
+  # ---------------------------------------------------------------
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [codeql, snyk, gitleaks, trivy]
+    if: always()
+
+    steps:
+      - name: Print summary
+        run: |
+          echo "## 🔐 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL (SAST) | ${{ needs.codeql.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Snyk (deps) | ${{ needs.snyk.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Gitleaks (secrets) | ${{ needs.gitleaks.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy (container/fs) | ${{ needs.trivy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full reports: GitHub Security tab → Code scanning alerts" >> $GITHUB_STEP_SUMMARY

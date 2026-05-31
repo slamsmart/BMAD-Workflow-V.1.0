@@ -1,0 +1,301 @@
+name: Audit Pipeline
+
+# Trigger conditions:
+# - Push ke main/master/develop
+# - Pull request ke main/master
+# - Manual trigger (workflow_dispatch)
+# - Schedule: setiap hari jam 2 pagi UTC (DAST full scan, opsional)
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      scan_depth:
+        description: 'DAST scan depth'
+        required: false
+        default: 'baseline'
+        type: choice
+        options:
+          - baseline
+          - full
+  schedule:
+    - cron: '0 2 * * *'  # nightly full scan
+
+# Concurrency: cancel run lama kalau ada commit baru
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  APP_URL: 'http://localhost:3000'
+  AUDIT_TIMEOUT: '60000'
+
+jobs:
+  # ---------------------------------------------------------------
+  # JOB 1: Static Analysis (SAST + Dependency Scan)
+  # Run dulu — cepet, fail fast kalau ada secret / vuln obvious
+  # ---------------------------------------------------------------
+  static-analysis:
+    name: Static Analysis (SAST + Deps)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # untuk secret scanning di git history
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint check
+        run: npm run lint --if-present
+
+      - name: Type check
+        run: npm run typecheck --if-present
+
+      - name: Dependency vulnerability scan
+        run: |
+          npm audit --audit-level=high --json > npm-audit.json || true
+          # Print summary, fail kalau ada critical/high
+          node -e "
+            const audit = require('./npm-audit.json');
+            const meta = audit.metadata?.vulnerabilities || {};
+            console.log('Vulnerabilities:', JSON.stringify(meta, null, 2));
+            const critical = (meta.critical || 0) + (meta.high || 0);
+            if (critical > 0) {
+              console.error('❌ Found ' + critical + ' critical/high vulnerabilities');
+              process.exit(1);
+            }
+            console.log('✅ No critical/high vulnerabilities');
+          "
+
+      - name: Secret scanning (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
+
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-reports
+          path: |
+            npm-audit.json
+          retention-days: 14
+
+  # ---------------------------------------------------------------
+  # JOB 2: Build & Test
+  # Build app, run unit tests
+  # ---------------------------------------------------------------
+  build-test:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: static-analysis
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test --if-present -- --coverage
+
+      - name: Build app
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            .next/
+            dist/
+            build/
+            out/
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
+  # JOB 3: Dynamic Analysis (DAST + Lighthouse + Accessibility)
+  # Butuh app running, jalanin 3 audit paralel via service localhost
+  # ---------------------------------------------------------------
+  dynamic-analysis:
+    name: Dynamic Analysis (DAST + Lighthouse + a11y)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: ./
+
+      - name: Start app in background
+        run: |
+          npm start &
+          echo "APP_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for app ready
+        run: npx wait-on ${{ env.APP_URL }} --timeout ${{ env.AUDIT_TIMEOUT }}
+
+      # ----- DAST: OWASP ZAP -----
+      - name: DAST Scan (OWASP ZAP)
+        run: |
+          # scan_depth: baseline (default, fast) atau full (nightly only)
+          SCAN_TYPE="${{ github.event.inputs.scan_depth || 'baseline' }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            SCAN_TYPE="full"
+          fi
+          echo "Running DAST: $SCAN_TYPE scan"
+
+          if [ "$SCAN_TYPE" = "full" ]; then
+            docker run --rm --network=host \
+              -v ${{ github.workspace }}:/zap/wrk/:rw \
+              -t ghcr.io/zaproxy/zaproxy:stable \
+              zap-full-scan.py \
+                -t ${{ env.APP_URL }} \
+                -J zap-report.json \
+                -r zap-report.html || true
+          else
+            docker run --rm --network=host \
+              -v ${{ github.workspace }}:/zap/wrk/:rw \
+              -t ghcr.io/zaproxy/zaproxy:stable \
+              zap-baseline.py \
+                -t ${{ env.APP_URL }} \
+                -J zap-report.json \
+                -r zap-report.html || true
+          fi
+
+      # ----- Lighthouse -----
+      - name: Run Lighthouse
+        run: |
+          npx --yes lighthouse ${{ env.APP_URL }} \
+            --output=json \
+            --output-path=./lighthouse-report.json \
+            --chrome-flags="--headless --no-sandbox --disable-gpu" \
+            --quiet || true
+
+      # ----- Accessibility (axe-core) -----
+      - name: Run axe Accessibility Check
+        run: |
+          npx --yes @axe-core/cli ${{ env.APP_URL }} \
+            --save axe-results.json \
+            --exit || echo "axe issues found, see axe-results.json"
+
+      # ----- CI Gate: validate all results -----
+      - name: CI Gate — Validate All Scores
+        run: node scripts/ci-gate.js
+
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -n "$APP_PID" ]; then
+            kill $APP_PID || true
+          fi
+
+      - name: Upload audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamic-analysis-reports
+          path: |
+            lighthouse-report.json
+            zap-report.json
+            zap-report.html
+            axe-results.json
+          retention-days: 14
+
+      - name: Comment audit summary on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = '## 🔍 Audit Pipeline Results\n\n';
+            try {
+              const lh = JSON.parse(fs.readFileSync('lighthouse-report.json', 'utf8'));
+              const cats = lh.categories;
+              summary += '### ⚡ Lighthouse\n';
+              summary += `- Performance: ${Math.round(cats.performance.score * 100)}\n`;
+              summary += `- Accessibility: ${Math.round(cats.accessibility.score * 100)}\n`;
+              summary += `- Best Practices: ${Math.round(cats['best-practices'].score * 100)}\n`;
+              summary += `- SEO: ${Math.round(cats.seo.score * 100)}\n\n`;
+            } catch (e) { summary += '⚠️ Lighthouse report tidak tersedia\n\n'; }
+
+            try {
+              const zap = JSON.parse(fs.readFileSync('zap-report.json', 'utf8'));
+              const alerts = zap.site?.[0]?.alerts || [];
+              const high = alerts.filter(a => a.riskdesc.startsWith('High')).length;
+              const med  = alerts.filter(a => a.riskdesc.startsWith('Medium')).length;
+              summary += `### 🔐 Security (DAST)\n- High: ${high} | Medium: ${med}\n\n`;
+            } catch (e) { summary += '⚠️ DAST report tidak tersedia\n\n'; }
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: summary
+            });
+
+  # ---------------------------------------------------------------
+  # JOB 4: Final Gate
+  # Aggregate hasil semua job, fail kalau ada yang merah
+  # ---------------------------------------------------------------
+  final-gate:
+    name: Final Gate
+    runs-on: ubuntu-latest
+    needs: [static-analysis, build-test, dynamic-analysis]
+    if: always()
+
+    steps:
+      - name: Check job results
+        run: |
+          echo "Static analysis: ${{ needs.static-analysis.result }}"
+          echo "Build & test:    ${{ needs.build-test.result }}"
+          echo "Dynamic:         ${{ needs.dynamic-analysis.result }}"
+
+          if [[ "${{ needs.static-analysis.result }}" != "success" ]] || \
+             [[ "${{ needs.build-test.result }}" != "success" ]] || \
+             [[ "${{ needs.dynamic-analysis.result }}" != "success" ]]; then
+            echo "❌ One or more audit jobs failed"
+            exit 1
+          fi
+          echo "✅ All audit jobs passed"
