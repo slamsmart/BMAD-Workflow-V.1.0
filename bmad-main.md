@@ -5,6 +5,79 @@ Upload file ini di setiap sesi kerja.
 
 ---
 
+## BMAD PHILOSOPHY
+
+**BMAD** = **B**rainstorm → **M**odel → **A**rchitect → **D**evelop
+
+Workflow ini bangun aplikasi dengan disiplin 4 tahap pikiran (filosofi) yang dieksekusi lewat 7 phase teknis (PHASE 0–4).
+
+### Mindset
+
+Lo adalah senior product engineer + system architect + audit-focused builder.
+
+Tujuan: bangun production-grade web app dengan:
+- **PRD, SRD, SYSTEM_MAP** sebagai source of truth (bukan "perasaan")
+- **Continuous audit mindset** (WCAG, UX, Security, Performance)
+- **Context-efficient, modular thinking** (lean-ctx, no dump raw)
+
+### 4 Tahap Berpikir
+
+#### 1. BRAINSTORM
+- Klarifikasi masalah nyata (bukan asumsi)
+- Identify users + pain points
+- Challenge ide vague
+- ❌ JANGAN langsung loncat ke solusi
+
+#### 2. MODEL (PRD)
+- Core features (max 5–7)
+- Success metrics yang measurable
+- WCAG 2.1 AA baseline include
+
+#### 3. ARCHITECT (SRD + SYSTEM_MAP)
+- Pecah sistem ke: Frontend / Backend / External services
+- Define data flow
+- Avoid overengineering
+
+#### 4. DEVELOP
+- Clean, modular, production-ready code
+- Follow stack best practices
+- No unnecessary abstraction
+- Audit layer mandatory (WCAG + UX + Security)
+
+### Mapping ke PHASE Teknis
+
+```
+1. BRAINSTORM            →  PHASE 0   (project-init: 6 pertanyaan)
+2. MODEL (PRD)           →  PHASE 0   (output: PRD.md)
+3. ARCHITECT (SRD + MAP) →  PHASE 0.5 + 0.6 (visual + SYSTEM_MAP)
+4. DEVELOP               →  PHASE 1–2 (task-executor + build)
+   + Audit Layer         →  PHASE 3–4 (audit pipeline + CI gate)
+```
+
+> **Filosofi = WHY. Phase = HOW.** Dua-duanya dipakai bareng. Untuk eksekusi nyata, ikuti PHASE flow di bawah.
+
+### Output Style
+
+- Direct
+- Execution-focused
+- No fluff, no theory tanpa context
+- Format: Insights (opt) → Next Actions → Code/Design (if needed)
+
+### Audit Layer (Mandatory)
+
+Sebelum finalize, validate:
+- **Accessibility (WCAG):** semantic HTML, keyboard nav
+- **UX (7-Lens):** clarity · simplicity · consistency · feedback · efficiency · accessibility · delight
+- **Impeccable execution:** consistency, edge cases handled, no sloppy logic
+
+Audit fail → **FIX immediately**, jangan ditunda.
+
+### Execution Rule
+
+Mulai dengan minimum critical questions untuk start BMAD. Jangan generate sebelum ada cukup info.
+
+---
+
 ## RESOURCE RULES (Baca Dulu)
 
 | Resource | Kapan |
@@ -198,22 +271,25 @@ Jalankan PHASE 4: validasi hasil Lighthouse ini
 ## CONTEXT FILES (upload ke Claude.ai)
 
 ```
-── dari repo set-up-project-v.1.0 ──
-SYSTEM_MAP.md
-mcp.json
+── working files (dari project lo, hasil isi /templates/) ──
+PRD.md                       ← copy dari /templates/PRD.template.md
+SRD.md                       ← copy dari /templates/SRD.template.md
+SYSTEM_MAP.md                ← copy dari /templates/SYSTEM_MAP.template.md (WAJIB)
+mcp.json                     ← MCP config (opsional)
 
-── dari workflow ini ──
-/docs/PRD.md
-/docs/SRD.md
-/docs/audit-checklist.md
-/docs/accessibility-wcag.md
-/ai/bmad-main.md         ← file ini (sudah include AGENTS)
-/ai/project-init.md
-/ai/task-executor.md
-/ai/auto-code-review.md
-/ai/bug-hunter.md
-/ai/auto-security-agent.md
+── dari repo BMAD-Workflow-V1.0 ──
+bmad-main.md                 ← file ini (sudah include AGENTS)
+project-init.md
+task-executor.md
+auto-code-review.md
+bug-hunter.md
+auto-security-agent.md
+audit-checklist.md
+accessibility-wcag.md
 ```
+
+> **Working files (`PRD.md` / `SRD.md` / `SYSTEM_MAP.md`) di-generate per-project** dari `/templates/`.
+> Repo workflow ini ngga commit working file — masing-masing project punya copy sendiri.
 
 ---
 

@@ -2,15 +2,36 @@
 
 ## EXTENDED PIPELINE
 
-1. Code Scan (Static)
-2. Security Audit (SAST)
+1. Code Scan (Static) — npm audit + gitleaks + Snyk
+2. SAST — code analysis (CodeQL + manual checklist)
 3. Security Auto-Fix
 4. DAST — Dynamic Application Security Testing (OWASP ZAP)
-5. Accessibility Audit (WCAG 2.1 AA)
-6. Accessibility Auto-Fix
-7. Lighthouse Audit
-8. CI Gate (Fail if < 90 or critical issue found)
-9. Final Validation & Report
+5. Container Scan (Trivy) — kalau ada Dockerfile
+6. Accessibility Audit (WCAG 2.1 AA) — axe-core
+7. Accessibility Auto-Fix
+8. Lighthouse Audit
+9. CI Gate (Fail if < 90 or critical issue found)
+10. Final Validation & Report
+
+---
+
+## 🛠️ TOOL STACK (Layered Defense)
+
+| Layer | Tool | Coverage | Free? |
+|---|---|---|---|
+| Dependency vulns | `npm audit` | Known CVEs | ✓ |
+| Dependency vulns (deeper) | **Snyk** | License + transitive | Free tier |
+| Dependency auto-update | **Dependabot** | Weekly PR auto-bump | ✓ (GitHub) |
+| Secret scanning | **gitleaks** | Code + git history | ✓ |
+| SAST | **CodeQL** | Code patterns, taint analysis | ✓ (public + GHES) |
+| DAST | **OWASP ZAP** | Runtime, dynamic | ✓ |
+| Container | **Trivy** | OS + lib vulns | ✓ |
+| Accessibility | **axe-core** | WCAG 2.1 A/AA | ✓ |
+| Performance | **Lighthouse** | Perf/a11y/BP/SEO | ✓ |
+
+> **Configuration:** semua tool ini sudah di-wire di `.github/workflows/security-scan.yml` (security) dan `.github/workflows/audit-pipeline.yml` (audit).
+> Dependabot config: `.github/dependabot.yml`.
+> CI gate aggregator: `scripts/ci-gate.js`.
 
 ---
 
@@ -23,19 +44,29 @@ Scan sebelum audit — tangkap hal obvious dulu.
 * `.env` tidak ter-commit
 * `console.log` sensitif
 * Dependencies dengan known vulnerabilities
+* Outdated dependencies dengan known CVEs (Snyk)
 
 ### Tools:
 ```bash
-# Dependency vulnerabilities
+# 1. npm audit (built-in, baseline)
 npm audit --audit-level=high
 
-# Secret scanning (jika pakai git)
-git log --all --full-history -- "*.env"
+# 2. Snyk (deeper analysis, license check)
+npx snyk@latest test --severity-threshold=high
+npx snyk@latest monitor  # continuous monitoring
+
+# 3. Secret scanning — gitleaks (lebih akurat dari grep)
+docker run --rm -v $(pwd):/path ghcr.io/gitleaks/gitleaks:latest \
+  detect --source /path -v
+
+# 4. Outdated package check
+npm outdated
 ```
 
 ### Fail jika:
 * `npm audit` return severity `high` atau `critical`
-* Secret / credential ditemukan di source
+* Snyk find vulnerability dengan severity `high` atau `critical`
+* Secret / credential ditemukan di source atau git history
 
 ---
 
@@ -125,23 +156,29 @@ Dijalankan setelah app running (staging / local dengan expose).
 
 ### Tool: OWASP ZAP
 
+> **Image migration note:** Image lama `owasp/zap2docker-stable` sudah deprecated (Docker Hub repo archived sejak 2024).
+> Pakai image resmi yang aktif di-maintain: `ghcr.io/zaproxy/zaproxy:stable`.
+> Reference: https://www.zaproxy.org/docs/docker/
+
 #### Setup:
 ```bash
-# Pull ZAP image
-docker pull owasp/zap2docker-stable
+# Pull ZAP image (resmi, maintained)
+docker pull ghcr.io/zaproxy/zaproxy:stable
 ```
 
-#### Baseline Scan (web app):
+#### Baseline Scan (web app — pasif, ~2 menit):
 ```bash
-docker run -t owasp/zap2docker-stable zap-baseline.py \
+docker run --rm -v $(pwd):/zap/wrk/:rw \
+  -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
   -t https://your-app-url \
   -r zap-report.html \
   -J zap-report.json
 ```
 
-#### Full Scan (lebih dalam, lebih lama):
+#### Full Scan (aktif + pasif, ~10–30 menit):
 ```bash
-docker run -t owasp/zap2docker-stable zap-full-scan.py \
+docker run --rm -v $(pwd):/zap/wrk/:rw \
+  -t ghcr.io/zaproxy/zaproxy:stable zap-full-scan.py \
   -t https://your-app-url \
   -r zap-report-full.html \
   -J zap-report-full.json
@@ -149,11 +186,14 @@ docker run -t owasp/zap2docker-stable zap-full-scan.py \
 
 #### API Scan (untuk REST API dengan OpenAPI spec):
 ```bash
-docker run -t owasp/zap2docker-stable zap-api-scan.py \
+docker run --rm -v $(pwd):/zap/wrk/:rw \
+  -t ghcr.io/zaproxy/zaproxy:stable zap-api-scan.py \
   -t https://your-app-url/openapi.json \
   -f openapi \
   -r zap-api-report.html
 ```
+
+> **Catatan:** Flag `-v $(pwd):/zap/wrk/:rw` perlu supaya report file (HTML/JSON) keluar ke working directory host, bukan stuck di dalam container.
 
 ### Scope DAST scan:
 * SQL Injection
@@ -353,10 +393,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
       - name: Install deps
-        run: npm install
+        run: npm ci
 
       - name: Dependency vulnerability scan
         run: npm audit --audit-level=high
@@ -368,12 +414,13 @@ jobs:
         run: npm start &
 
       - name: Wait for server
-        run: sleep 10
+        run: npx wait-on http://localhost:3000 --timeout 60000
 
       - name: DAST Scan (OWASP ZAP)
         run: |
-          docker run -t owasp/zap2docker-stable zap-baseline.py \
-            -t http://localhost:3000 \
+          docker run --rm -v ${{ github.workspace }}:/zap/wrk/:rw \
+            -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://host.docker.internal:3000 \
             -J zap-report.json || true
 
       - name: Run Lighthouse
@@ -381,23 +428,25 @@ jobs:
           npx lighthouse http://localhost:3000 \
             --output=json \
             --output-path=./lighthouse-report.json \
-            --chrome-flags="--headless"
+            --chrome-flags="--headless --no-sandbox"
 
       - name: Run axe Accessibility Check
-        run: npx axe http://localhost:3000 --exit
+        run: npx @axe-core/cli http://localhost:3000 --exit
 
       - name: CI Gate — Validate All Scores
         run: node ci-gate.js
 
       - name: Upload Reports
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: audit-reports
           path: |
             lighthouse-report.json
             zap-report.json
 ```
+
+> **Versi GitHub Actions:** `actions/checkout@v3` dan `actions/upload-artifact@v3` sudah deprecated (EOL Januari 2025). Sudah di-update ke v4.
 
 ---
 
