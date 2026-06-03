@@ -2,7 +2,7 @@
 title: "BMAD Workflow V1.0 — Visual Guide"
 subtitle: "AI-Driven Engineering Workflow untuk Production-Ready Apps"
 author: "BMAD Workflow Team"
-date: "2026"
+date: "2026-05-31"
 geometry: "margin=2cm"
 toc: true
 toc-depth: 3
@@ -14,6 +14,8 @@ numbersections: true
 > **Untuk siapa dokumen ini?**
 > Developer yang baru kenal AI-driven workflow, atau yang udah pakai tapi mau lebih terstruktur.
 > Dokumen ini visual-heavy supaya gampang dipahami sambil ngeprint.
+
+> **Versi:** v1.1 — Updated 2026-05-31 dengan codegraph integration + multi-agent compatibility
 
 ---
 
@@ -34,15 +36,33 @@ numbersections: true
 └──────────────────────────────────────────────────┘
 ```
 
-Setiap tahap dieksekusi dengan AI (Claude.ai / Claude Code) lewat **PHASE 0–4** yang konkret, bukan teori.
+Setiap tahap dieksekusi dengan AI agent (Claude Code, Cursor, Codex, Gemini, opencode, Hermes Agent, Antigravity, Kiro, dll) lewat **PHASE 0–4** yang konkret, bukan teori.
 
-### 1.2 Kenapa Pakai Workflow Ini?
+### 1.2 Multi-Agent Compatible
+
+Workflow ini **agent-agnostic**. Bisa dipake dengan 8 AI agent populer yang support MCP (Model Context Protocol):
+
+```mermaid
+flowchart LR
+    A[BMAD Workflow] -->|works with| B[Claude Code<br/>Anthropic]
+    A -->|works with| C[Cursor<br/>Multi-model]
+    A -->|works with| D[Codex CLI<br/>OpenAI]
+    A -->|works with| E[opencode<br/>Multi-model]
+    A -->|works with| F[Hermes Agent<br/>Multi-model]
+    A -->|works with| G[Gemini CLI<br/>Google]
+    A -->|works with| H[Antigravity IDE<br/>Multi-model]
+    A -->|works with| I[Kiro<br/>Multi-model]
+
+    style A fill:#fff3cd,stroke:#856404,stroke-width:3px
+```
+
+### 1.3 Kenapa Pakai Workflow Ini?
 
 ```mermaid
 graph LR
     A[❌ Tanpa Workflow] -->|hasil| B[Code jalan tapi:<br/>- Security gap<br/>- A11y diabaikan<br/>- Performance jelek<br/>- Dokumentasi nggak ada]
 
-    C[✅ Pakai BMAD] -->|hasil| D[Code aman + cepat:<br/>- WCAG AA<br/>- Lighthouse ≥ 90<br/>- No critical CVE<br/>- Doc lengkap]
+    C[✅ Pakai BMAD] -->|hasil| D[Code aman + cepat:<br/>- WCAG AA<br/>- Lighthouse ≥ 90<br/>- No critical CVE<br/>- Doc lengkap<br/>- Code intelligence]
 
     style A fill:#f8d7da
     style B fill:#f8d7da
@@ -50,7 +70,7 @@ graph LR
     style D fill:#d4edda
 ```
 
-### 1.3 Komponen Utama
+### 1.4 Komponen Utama
 
 ```mermaid
 mindmap
@@ -74,6 +94,11 @@ mindmap
       security-scan.yml
       ci-gate.js
       dependabot.yml
+    MCP Layer
+      lean-ctx
+      codegraph
+      you-com optional
+      github optional
 ```
 
 ---
@@ -124,14 +149,14 @@ BMAD-Workflow-V1.0/
 ```mermaid
 graph TD
     USER([👤 User])
-    AI([🤖 Claude.ai])
+    AI([🤖 AI Agent<br/>Claude/Cursor/Codex/dll])
 
     USER -->|baca dulu| README[README.md]
     USER -->|baca lengkap| GUIDE[WORKFLOW_GUIDE.md<br/>file ini]
 
     USER -->|upload setiap sesi| MAIN[bmad-main.md<br/>⭐ entry point]
     USER -->|copy ke project| TPL[templates/]
-    TPL -->|hasil isi| WORK[Working files<br/>PRD, SRD, SYSTEM_MAP]
+    TPL -->|hasil isi| WORK[Working files<br/>PRD, SRD, SYSTEM_MAP, mcp.json]
     USER -->|upload working files| AI
 
     USER -->|upload sesuai phase| AGENTS[Agent files<br/>project-init, task-executor, dll]
@@ -140,12 +165,15 @@ graph TD
     USER -->|copy ke project| CI[.github/ + scripts/]
     CI -->|push ke GitHub| GH[GitHub Actions<br/>auto-validate]
 
+    MCP[MCP Servers<br/>lean-ctx + codegraph] -.->|enhance| AI
+
     AI -->|generate output| USER
     GH -->|pass/fail| USER
 
     style MAIN fill:#fff3cd,stroke:#856404,stroke-width:3px
     style AI fill:#cfe2ff
     style USER fill:#d4edda
+    style MCP fill:#e2d9f3
 ```
 
 ---
@@ -654,7 +682,29 @@ PHASE 3-4:      + auto-security-agent.md + accessibility-wcag.md + audit-checkli
 
 ## 8. Convert Guide ini ke PDF
 
-### Opsi A: Pakai Pandoc (CLI)
+### Opsi A: Built-in script ⭐ (recommended)
+
+Script `scripts/build-pdf.js` udah include — render Mermaid native, pakai Chrome/Edge yang udah ada di sistem (no extra install, cuma butuh `node`).
+
+```bash
+node scripts/build-pdf.js
+# Output: WORKFLOW_GUIDE.pdf (~1.7 MB dengan semua Mermaid diagram)
+```
+
+Custom input/output:
+
+```bash
+node scripts/build-pdf.js docs/CUSTOM.md out/custom.pdf
+```
+
+**Yang di-handle otomatis:**
+- ✅ Mermaid diagrams (render via CDN, headless Chrome)
+- ✅ GFM tables, code blocks, blockquote
+- ✅ Cover page dari YAML frontmatter
+- ✅ Auto-install `marked` dependency (one-time, ~50 KB)
+- ✅ Cross-platform (Windows/Mac/Linux — auto-detect Chrome/Edge)
+
+### Opsi B: Pandoc (CLI)
 
 ```bash
 # Install pandoc dulu (sekali aja)
@@ -669,25 +719,18 @@ pandoc WORKFLOW_GUIDE.md \
   -V mainfont="Calibri"
 ```
 
-### Opsi B: VSCode Extension
+> ⚠️ Pandoc nggak render Mermaid native. Pre-render diagram ke `.png` pakai `mermaid-cli`, atau pakai Opsi A.
+
+### Opsi C: VSCode Extension
 
 1. Install extension `Markdown PDF` (yzane.markdown-pdf)
 2. Buka `WORKFLOW_GUIDE.md`
 3. Right-click → `Markdown PDF: Export (pdf)`
 
-### Opsi C: Typora
+### Opsi D: Typora
 
 1. Buka `WORKFLOW_GUIDE.md` di Typora
 2. File → Export → PDF
-
-### Opsi D: Online (untuk Mermaid render)
-
-1. Push ke GitHub
-2. Buka raw URL di browser dengan extension `Mermaid Diagrams Renderer`
-3. Print → Save as PDF
-
-> **Note Mermaid:** GitHub renders Mermaid native di markdown viewer.
-> Untuk PDF dengan Mermaid: pakai `mermaid-cli` untuk pre-render ke gambar dulu.
 
 ---
 
